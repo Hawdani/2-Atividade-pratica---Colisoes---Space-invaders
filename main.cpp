@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <string>
 #include <cmath> 
+#include <windows.h> // Necessário para as threads e funções de som
 
 // --- VARIÁVEIS GLOBAIS GERAIS ---
 int pontos = 0;
@@ -20,7 +21,7 @@ bool tiroAtivo = false;
 
 // --- ESTRUTURA PARA MÚLTIPLOS INIMIGOS ---
 const int MAX_ALIENS = 15; 
-int aliensEmJogo = 1;     
+int aliensEmJogo = 1;      
 
 struct Alien {
     bool vivo;
@@ -36,10 +37,38 @@ struct Alien {
 
 Alien aliens[MAX_ALIENS];
 
+// --- FUNÇÕES DE SOM ESTILO SUPER BOMBERMAN 4 (SNES 16-BIT) ---
+
+// Som de Explosão (Tiro no Alien) - Simula o estouro clássico da bomba do Bomberman
+DWORD WINAPI somAcerto(LPVOID lpParam) {
+    Beep(580, 20);
+    Beep(320, 25);
+    Beep(160, 30);
+    Beep(90, 40);
+    return 0;
+}
+
+// Som de Power-Up (Coletar Drop) - Arpejo saltitante e brilhante de quando se coleta um item
+DWORD WINAPI somDrop(LPVOID lpParam) {
+    Beep(880, 25);  // Nota Lá
+    Beep(1109, 25); // Nota Dó#
+    Beep(1318, 25); // Nota Mi
+    Beep(1760, 45); // Nota Lá (Oitava acima - Final feliz)
+    return 0;
+}
+
+// Som de Dano (Tomar Tiro) - O efeito descendente de quando o Bomberman é atingido
+DWORD WINAPI somDano(LPVOID lpParam) {
+    for (int f = 1600; f > 200; f -= 140) {
+        Beep(f, 15); // Deslizamento rápido para frequências graves
+    }
+    return 0;
+}
+
 // --- FUNÇÃO DE SPAWN INTELIGENTE ---
 void spawnAlien(int i) {
     bool posicaoValida;
-    int tentativas = 0;
+    int tentativas = 0; 
     
     do {
         aliens[i].x = (rand() % 170 - 85) / 100.0f; 
@@ -162,6 +191,9 @@ void atualizar(int valor) {
                     aliens[i].dropX = aliens[i].x; aliens[i].dropY = aliens[i].y;
                     aliens[i].dropAtivo = true;
 
+                    // Som de explosão clássica de bloco/bomba
+                    CreateThread(NULL, 0, somAcerto, NULL, 0, NULL);
+
                     contadorParaVida++;
                     if (contadorParaVida >= 20) {
                         aliens[i].eDropDeVida = true;
@@ -183,6 +215,10 @@ void atualizar(int valor) {
                     } else {
                         pontos++; 
                     }
+                    
+                    // Som de coletar item/power-up do SNES
+                    CreateThread(NULL, 0, somDrop, NULL, 0, NULL);
+
                     aliens[i].dropAtivo = false;
                     spawnAlien(i); 
                 }
@@ -202,6 +238,9 @@ void atualizar(int valor) {
                 if (verificaColisao(naveX - 0.05f, -0.9f, 0.1f, 0.1f, aliens[i].tiroX - 0.01f, aliens[i].tiroY - 0.05f, 0.02f, 0.05f)) {
                     vidas--; 
                     aliens[i].tiroAtivo = false;
+
+                    // Som de quando o personagem toma dano
+                    CreateThread(NULL, 0, somDano, NULL, 0, NULL);
                 }
                 if (aliens[i].tiroY < -1.0f) aliens[i].tiroAtivo = false;
             }
